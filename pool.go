@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/net/http2"
 
-	"github.com/mmatczuk/go-http-tunnel/id"
+	"github.com/sahil-lakhwani/go-http-tunnel/id"
 )
 
 type connPair struct {

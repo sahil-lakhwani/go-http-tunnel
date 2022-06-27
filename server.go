@@ -19,9 +19,9 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/inconshreveable/go-vhost"
-	"github.com/mmatczuk/go-http-tunnel/id"
-	"github.com/mmatczuk/go-http-tunnel/log"
-	"github.com/mmatczuk/go-http-tunnel/proto"
+	"github.com/sahil-lakhwani/go-http-tunnel/id"
+	"github.com/sahil-lakhwani/go-http-tunnel/log"
+	"github.com/sahil-lakhwani/go-http-tunnel/proto"
 )
 
 // ServerConfig defines configuration for the Server.
@@ -54,10 +54,13 @@ type Server struct {
 	httpClient *http.Client
 	logger     log.Logger
 	vhostMuxer *vhost.TLSMuxer
+	callBack   CallBack
 }
 
+type CallBack func(host string, identifier string)
+
 // NewServer creates a new Server.
-func NewServer(config *ServerConfig) (*Server, error) {
+func NewServer(config *ServerConfig, call CallBack) (*Server, error) {
 	listener, err := listener(config)
 	if err != nil {
 		return nil, fmt.Errorf("listener failed: %s", err)
@@ -73,6 +76,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		config:   config,
 		listener: listener,
 		logger:   logger,
+		callBack: call,
 	}
 
 	t := &http2.Transport{}
@@ -369,6 +373,8 @@ func (s *Server) handleClient(conn net.Conn) {
 		"level", 1,
 		"action", "connected",
 	)
+
+	s.callBack(s.registry.items[identifier].Hosts[0].Host, identifier.String())
 
 	return
 
