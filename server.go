@@ -19,9 +19,9 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/inconshreveable/go-vhost"
-	"github.com/sahil-lakhwani/go-http-tunnel/id"
-	"github.com/sahil-lakhwani/go-http-tunnel/log"
-	"github.com/sahil-lakhwani/go-http-tunnel/proto"
+	"github.com/mmatczuk/go-http-tunnel/id"
+	"github.com/mmatczuk/go-http-tunnel/log"
+	"github.com/mmatczuk/go-http-tunnel/proto"
 )
 
 // ServerConfig defines configuration for the Server.
@@ -43,24 +43,29 @@ type ServerConfig struct {
 	SNIAddr string
 }
 
+type ConnectionEventHandler interface {
+	OnConnect(host string, id string)
+	OnDisconnect(host string, id string)
+}
+
 // Server is responsible for proxying public connections to the client over a
 // tunnel connection.
 type Server struct {
 	*registry
 	config *ServerConfig
 
-	listener   net.Listener
-	connPool   *connPool
-	httpClient *http.Client
-	logger     log.Logger
-	vhostMuxer *vhost.TLSMuxer
-	callBack   CallBack
+	listener     net.Listener
+	connPool     *connPool
+	httpClient   *http.Client
+	logger       log.Logger
+	vhostMuxer   *vhost.TLSMuxer
+	eventHandler ConnectionEventHandler
 }
 
-type CallBack func(host string, identifier string)
+// type CallBack func(eventtype EventType, host string, identifier string) error
 
 // NewServer creates a new Server.
-func NewServer(config *ServerConfig, call CallBack) (*Server, error) {
+func NewServer(config *ServerConfig, handler ConnectionEventHandler) (*Server, error) {
 	listener, err := listener(config)
 	if err != nil {
 		return nil, fmt.Errorf("listener failed: %s", err)
@@ -72,11 +77,11 @@ func NewServer(config *ServerConfig, call CallBack) (*Server, error) {
 	}
 
 	s := &Server{
-		registry: newRegistry(logger),
-		config:   config,
-		listener: listener,
-		logger:   logger,
-		callBack: call,
+		registry:     newRegistry(logger),
+		config:       config,
+		listener:     listener,
+		logger:       logger,
+		eventHandler: handler,
 	}
 
 	t := &http2.Transport{}
@@ -165,6 +170,8 @@ func (s *Server) disconnected(identifier id.ID) {
 		"identifier", identifier,
 	)
 
+	host := s.registry.items[identifier].Hosts[0].Host
+
 	i := s.registry.clear(identifier)
 	if i == nil {
 		return
@@ -178,6 +185,8 @@ func (s *Server) disconnected(identifier id.ID) {
 		)
 		l.Close()
 	}
+
+	go s.eventHandler.OnDisconnect(host, identifier.String())
 }
 
 // Start starts accepting connections form clients. For accepting http traffic
@@ -374,8 +383,7 @@ func (s *Server) handleClient(conn net.Conn) {
 		"action", "connected",
 	)
 
-	s.callBack(s.registry.items[identifier].Hosts[0].Host, identifier.String())
-
+	go s.eventHandler.OnConnect(s.registry.items[identifier].Hosts[0].Host, identifier.String())
 	return
 
 reject:

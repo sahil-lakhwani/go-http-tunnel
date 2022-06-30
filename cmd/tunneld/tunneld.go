@@ -15,9 +15,9 @@ import (
 
 	"golang.org/x/net/http2"
 
-	tunnel "github.com/sahil-lakhwani/go-http-tunnel"
-	"github.com/sahil-lakhwani/go-http-tunnel/id"
-	"github.com/sahil-lakhwani/go-http-tunnel/log"
+	tunnel "github.com/mmatczuk/go-http-tunnel"
+	"github.com/mmatczuk/go-http-tunnel/id"
+	"github.com/mmatczuk/go-http-tunnel/log"
 )
 
 func main() {
@@ -46,7 +46,7 @@ func main() {
 		AutoSubscribe: autoSubscribe,
 		TLSConfig:     tlsconf,
 		Logger:        logger,
-	}, dummyCallBack)
+	}, noOpEventHandler{})
 	if err != nil {
 		fatal("failed to create server: %s", err)
 	}
@@ -142,6 +142,13 @@ func fatal(format string, a ...interface{}) {
 	os.Exit(1)
 }
 
-func dummyCallBack(host string, id string) {
-	fmt.Println("Host: ", host, "Id: ", id)
+type noOpEventHandler struct {
+}
+
+func (e noOpEventHandler) OnConnect(host, id string) {
+	return
+}
+
+func (e noOpEventHandler) OnDisconnect(host, id string) {
+	return
 }

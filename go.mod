@@ -1,4 +1,4 @@
-module github.com/sahil-lakhwani/go-http-tunnel
+module github.com/mmatczuk/go-http-tunnel
 
 go 1.18
 
